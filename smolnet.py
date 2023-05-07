@@ -32,7 +32,7 @@ class Network:
         self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
 
     def feed_forward(self, a_l: np.ndarray, y: np.ndarray):
-        """Feedforward each input and calculates deltas at each layer to be later used in
+        """Feedforward each input and calculate deltas at each layer which are to be used later in
         backpropagation.
 
         Args:
@@ -62,7 +62,7 @@ class Network:
     def backprop(self):
         """Update the gradient of weights and biases.
         """
-        for l in range(1, self.num_layer - 1):
+        for l in range(1, self.num_layer):
             self.gradient_b[-l] +=  self.delta[-l]
             self.gradient_w[-l] += self.delta[-l].reshape(-1, 1) @ self.a[-l-1].reshape(-1, 1).T
 
