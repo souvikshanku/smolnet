@@ -2,7 +2,7 @@ Implementation of Multi Layer Perceptron from scratch using only `numpy`. Broadl
 
 To train the model with MNIST dataset and run the app, do - 
 ```bash
-pip install -r  requirements.txt
+pip install -r requirements.txt
 python train_smolnet.py
 python app.py
 ```
