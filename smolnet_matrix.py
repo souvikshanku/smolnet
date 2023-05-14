@@ -63,10 +63,10 @@ class Network:
         """Update the gradient of weights and biases.
         """
         for l in range(1, self.num_layer):
-            self.gradient_b[-l] +=  self.delta[-l]
-            self.gradient_w[-l] += self.delta[-l].reshape(-1, 1) @ self.a[-l-1].reshape(-1, 1).T
+            self.gradient_b[-l] =  self.delta[-l].sum(axis=1).reshape(self.biases[-l].shape)
+            self.gradient_w[-l] = self.delta[-l] @ self.a[-l-1].T
 
-    def update_params(self, mini_batch_length):
+    def update_params(self, mini_batch_length: int):
         """Update weights and biases after each pass of a mini-batch.
 
         Args:
@@ -130,13 +130,11 @@ class Network:
             ]
 
             for batch in mini_batches:
-                x = [batch[i][0] for i in range(len(batch))]
-                y = [batch[i][1] for i in range(len(batch))]
+                x = np.array([batch[i][0] for i in range(len(batch))]).reshape(-1, len(batch))
+                y = np.array([batch[i][1] for i in range(len(batch))]).reshape(-1, len(batch))
 
-                for x_i, y_i in zip(x, y):
-                    self.feed_forward(x_i, y_i)
-                    self.backprop()
-
+                self.feed_forward(x, y)
+                self.backprop()
                 self.update_params(len(batch))
                 self.zero_grad()
 
