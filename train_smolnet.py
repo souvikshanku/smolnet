@@ -5,7 +5,7 @@ import pickle
 
 import numpy as np
 
-from smolnet import Network
+from smolnet_matrix import Network
 
 
 with gzip.open('data/mnist.pkl.gz', "rb") as f:

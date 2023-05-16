@@ -25,12 +25,6 @@ class Network:
         self.accuracies = []
         self.learning_rate = 1
 
-    def zero_grad(self):
-        """Set gradients to zero after each mini-batch pass. 
-        """
-        self.gradient_w = [np.zeros(weight.shape) for weight in self.weights]
-        self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
-
     def feed_forward(self, a_l: np.ndarray, y: np.ndarray):
         """Feedforward each input and calculate deltas at each layer which are to be used later in
         backpropagation.
@@ -56,7 +50,7 @@ class Network:
 
         for l in range(2, self.num_layer):
             self.delta[-l] = (
-                np.dot(self.weights[-l+1].T, self.delta[-l+1]) * sigmoid_prime(self.z[-l])
+                (self.weights[-l+1].T @ self.delta[-l+1]) * sigmoid_prime(self.z[-l])
             )
 
     def backprop(self):
@@ -77,9 +71,47 @@ class Network:
             self.weights[layer] -= (eta / mini_batch_length) * self.gradient_w[layer]
             self.biases[layer] -= (eta / mini_batch_length) * self.gradient_b[layer]
 
+    def zero_grad(self):
+        """Set gradients to zero after each mini-batch pass.
+        """
+        self.gradient_w = [np.zeros(weight.shape) for weight in self.weights]
+        self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
+
     def _cost_derivative(self, output: np.ndarray, y: np.ndarray):
         """Cost function used here is mean squared error."""
         return output - y
+
+    def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data = None):
+        """Train the network and calculate accuracy after each epoch.
+
+        Args:
+            training_data (list[tuple]): List containing all training sample, in this format - 
+                 [(x1, y1), (x2, y2), ..., (x_n, y_n)]
+            epochs (int): Number of epochs to train the network for.
+            batch_size (int): Number of training samples in each minibatch.
+            test_data ((list[tuple]), optional): Test data to calculate accuracy post training.
+                Defaults to None.
+        """
+        for epoch in range(1, epochs + 1):
+            random.shuffle(training_data)
+            mini_batches = [
+                training_data[k:k+batch_size] for k in range(0, len(training_data), batch_size)
+            ]
+
+            for batch in mini_batches:
+                x = np.array([batch[i][0] for i in range(len(batch))]).reshape(len(batch), -1).T
+                y = np.array([batch[i][1] for i in range(len(batch))]).reshape(len(batch), -1).T
+
+                self.feed_forward(x, y)
+                self.backprop()
+                self.update_params(len(batch))
+                self.zero_grad()
+
+            if test_data:
+                accuracy = self.evaluate(test_data)
+                self.accuracies.append(accuracy)
+                if epoch % 3 == 0:
+                    print(f"Accuracy at epoch {epoch}: {accuracy}")
 
     def predict(self, x: np.ndarray):
         """Return predicted value based on input.
@@ -111,38 +143,6 @@ class Network:
             [predicted_labels[i] == actual_lebels[i] for i in range(len(test_data))]
         )
         return num_correct_labels / len(test_data)
-
-    def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data = None):
-        """Train the network and calculate accuracy after each epoch.
-
-        Args:
-            training_data (list[tuple]): List containing all training sample, in this format - 
-                 [(x1, y1), (x2, y2), ..., (x_n, y_n)]
-            epochs (int): Number of epochs to train the network for.
-            batch_size (int): Number of training samples in each minibatch.
-            test_data ((list[tuple]), optional): Test data to calculate accuracy post training.
-                Defaults to None.
-        """
-        for epoch in range(1, epochs + 1):
-            random.shuffle(training_data)
-            mini_batches = [
-                training_data[k:k+batch_size] for k in range(0, len(training_data), batch_size)
-            ]
-
-            for batch in mini_batches:
-                x = np.array([batch[i][0] for i in range(len(batch))]).reshape(-1, len(batch))
-                y = np.array([batch[i][1] for i in range(len(batch))]).reshape(-1, len(batch))
-
-                self.feed_forward(x, y)
-                self.backprop()
-                self.update_params(len(batch))
-                self.zero_grad()
-
-            if test_data:
-                accuracy = self.evaluate(test_data)
-                self.accuracies.append(accuracy)
-                if epoch % 3 == 0:
-                    print(f"Accuracy at epoch {epoch}: {accuracy}")
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
