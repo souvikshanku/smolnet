@@ -47,7 +47,10 @@ class Network:
             self.z.append(z_l)
 
         # delta_L, of last layer
-        self.delta[-1] = self._cost_derivative(self.a[-1], y) * sigmoid_prime(self.z[-1])
+        if self.cost_fun == 'cross-entropy':
+            self.delta[-1] = self.a[-1] - y
+        else:
+            self.delta[-1] = self._cost_derivative(self.a[-1], y) * sigmoid_prime(self.z[-1])
 
         for l in range(2, self.num_layer):
             self.delta[-l] = (
@@ -79,13 +82,9 @@ class Network:
         self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
 
     def _cost_derivative(self, output: np.ndarray, y: np.ndarray):
-        """Default cost function used here is mean squared error. It can also return 
-        cross-entropy cost function.s
+        """Default cost function used here is mean squared error.
         """
-        if self.cost_fun == 'cross-entropy':
-            return (y - output) / (output * (1- output))
-        else:
-            return output - y
+        return output - y
 
     def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data = None):
         """Train the network and calculate accuracy after each epoch.
