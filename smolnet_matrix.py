@@ -8,9 +8,10 @@ import numpy as np
 
 
 class Network:
-    def __init__(self, size: tuple):
+    def __init__(self, size: tuple[int, int, int], cost_fun: str = None):
         self.size = size
         self.num_layer = len(size)
+        self.cost_fun = cost_fun
 
         self.weights = [np.random.randn(size[i], size[i-1]) for i in range(1, self.num_layer)]
         self.biases = [np.random.randn(size[i], 1) for i in range(1, self.num_layer)]
@@ -78,8 +79,13 @@ class Network:
         self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
 
     def _cost_derivative(self, output: np.ndarray, y: np.ndarray):
-        """Cost function used here is mean squared error."""
-        return output - y
+        """Default cost function used here is mean squared error. It can also return 
+        cross-entropy cost function.s
+        """
+        if self.cost_fun == 'cross-entropy':
+            return (y - output) / (output * (1- output))
+        else:
+            return output - y
 
     def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data = None):
         """Train the network and calculate accuracy after each epoch.
