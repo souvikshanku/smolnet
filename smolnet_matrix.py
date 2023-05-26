@@ -90,13 +90,15 @@ class Network:
 
             if self.regularization:
                 if self.reg_type == 'l1':
-                    self.weights[layer] -= (
-                        (eta * self._lambda / self.train_size) * (self.weights[layer] >= 0)
+                    self.weights[layer] = (
+                        self.weights[layer]
+                        - (eta * self._lambda / self.train_size) * (self.weights[layer] >= 0)
                         - (eta / mini_batch_length) * self.gradient_w[layer]
                     )
                 else:
-                    self.weights[layer] -= (
-                        (eta * self._lambda / self.train_size) * self.weights[layer]
+                    self.weights[layer] = (
+                        self.weights[layer]
+                        - (eta * self._lambda / self.train_size) * self.weights[layer]
                         - (eta / mini_batch_length) * self.gradient_w[layer]
                     )
             else:

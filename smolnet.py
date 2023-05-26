@@ -1,5 +1,5 @@
 """
-Main module of smolnet.
+Minimal smolnet. For extra features like regularization etc. see smolnet_matrix.py 
 """
 from __future__ import annotations
 import random
