@@ -12,6 +12,7 @@ class Network:
         self.size = size
         self.num_layer = len(size)
         self.cost_fun = cost_fun
+        self.regularization = False
 
         self.weights = [np.random.randn(size[i], size[i-1]) for i in range(1, self.num_layer)]
         self.biases = [np.random.randn(size[i], 1) for i in range(1, self.num_layer)]
@@ -25,6 +26,19 @@ class Network:
 
         self.accuracies = []
         self.learning_rate = 1
+    
+    def regularize(self, train_size: int, _type: str, _lambda: float = 0.1):
+        """Apply regularization to the network.
+
+        Args:
+            train_size (int): Size of the training set.
+            type (str): Type of regularization; either `l1` or `l2`.
+            _lambda (float): The regularization parameter. Defaults to 0.1.
+        """
+        self.regularization = True
+        self.train_size= train_size
+        self.reg_type = _type
+        self._lambda = _lambda
 
     def feed_forward(self, a_l: np.ndarray, y: np.ndarray):
         """Feedforward each input and calculate deltas at each layer which are to be used later in
@@ -72,8 +86,21 @@ class Network:
         """
         eta = self.learning_rate
         for layer in range(self.num_layer - 1):
-            self.weights[layer] -= (eta / mini_batch_length) * self.gradient_w[layer]
             self.biases[layer] -= (eta / mini_batch_length) * self.gradient_b[layer]
+
+            if self.regularization:
+                if self.reg_type == 'l1':
+                    self.weights[layer] -= (
+                        (eta * self._lambda / self.train_size) * (self.weights[layer] >= 0)
+                        - (eta / mini_batch_length) * self.gradient_w[layer]
+                    )
+                else:
+                    self.weights[layer] -= (
+                        (eta * self._lambda / self.train_size) * self.weights[layer]
+                        - (eta / mini_batch_length) * self.gradient_w[layer]
+                    )
+            else:
+                self.weights[layer] -= (eta / mini_batch_length) * self.gradient_w[layer]
 
     def zero_grad(self):
         """Set gradients to zero after each mini-batch pass.
@@ -82,9 +109,40 @@ class Network:
         self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
 
     def _cost_derivative(self, output: np.ndarray, y: np.ndarray):
-        """Default cost function used here is mean squared error.
+        """Default cost function used here is mean squared error. Derivative is w.r.t. `a`.
         """
         return output - y
+
+    def predict(self, x: np.ndarray):
+        """Return predicted value based on input.
+
+        Args:
+            x (np.ndarray): Input to the network.
+
+        Returns:
+            np.ndarray: Output of the model.
+        """
+        for l in range(self.num_layer - 1):
+            z_l = np.dot(self.weights[l], x)
+            x = sigmoid(z_l + self.biases[l])
+        return x
+
+    def evaluate(self, test_data: list[tuple]) -> float:
+        """Evaluate the network with test data.
+
+        Args:
+            test_data (list[tuple]): List of test samples of this format -
+                [(x1, y1), (x2, y2), ..., (x_n, y_n)]
+
+        Returns:
+            float: Accuracy on test data.
+        """
+        predicted_labels = [np.argmax(self.predict(x)) for x, _ in test_data]
+        actual_lebels = [np.argmax(y) for _, y in test_data]
+        num_correct_labels =  sum(
+            [predicted_labels[i] == actual_lebels[i] for i in range(len(test_data))]
+        )
+        return num_correct_labels / len(test_data)
 
     def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data = None):
         """Train the network and calculate accuracy after each epoch.
@@ -117,37 +175,6 @@ class Network:
                 self.accuracies.append(accuracy)
                 if epoch % 3 == 0:
                     print(f"Accuracy at epoch {epoch}: {accuracy}")
-
-    def predict(self, x: np.ndarray):
-        """Return predicted value based on input.
-
-        Args:
-            x (np.ndarray): Input to the network.
-
-        Returns:
-            np.ndarray: Output of the model.
-        """
-        for l in range(self.num_layer - 1):
-            z_l = np.dot(self.weights[l], x)
-            x = sigmoid(z_l + self.biases[l])
-        return x
-
-    def evaluate(self, test_data: list[tuple]) -> float:
-        """Evaluate the network with test data.
-
-        Args:
-            test_data (list[tuple]): List of test samples of this format -
-                [(x1, y1), (x2, y2), ..., (x_n, y_n)]
-
-        Returns:
-            float: Accuracy on test data.
-        """
-        predicted_labels = [np.argmax(self.predict(x)) for x, _ in test_data]
-        actual_lebels = [np.argmax(y) for _, y in test_data]
-        num_correct_labels =  sum(
-            [predicted_labels[i] == actual_lebels[i] for i in range(len(test_data))]
-        )
-        return num_correct_labels / len(test_data)
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
