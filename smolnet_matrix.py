@@ -13,6 +13,7 @@ class Network:
         self.num_layer = len(size)
         self.cost_fun = cost_fun
         self.regularization = False
+        self.dropout = False
 
         self.weights = [np.random.randn(size[i], size[i-1]) for i in range(1, self.num_layer)]
         self.biases = [np.random.randn(size[i], 1) for i in range(1, self.num_layer)]
@@ -26,6 +27,15 @@ class Network:
 
         self.accuracies = []
         self.learning_rate = 1
+
+    def dropout(self, dropout_prob: float = 0.8):
+        """Apply dropout in the network.
+
+        Args:
+            dropout_prob (float): Dropout probability. Defaults to 0.8.
+        """
+        self.dropout = True
+        self.dropout_prob = dropout_prob
     
     def regularize(self, train_size: int, _type: str, _lambda: float = 0.1):
         """Apply regularization to the network.
@@ -51,13 +61,22 @@ class Network:
         self.z = []
         self.a = []
 
-        self.a.append(a_l)  # <- input layer
+        if self.dropout:
+            r = np.random.binomial(1, 0.5, size=len(a_l))
+            self.a.append(a_l * r)
+        else:
+            self.a.append(a_l)  # <- input layer
 
         for l in range(self.num_layer - 1):  # last layer is output layer
             z_l = np.dot(self.weights[l], a_l)
             a_l = sigmoid(z_l + self.biases[l])
 
+        if self.dropout:
+            r = np.random.binomial(1, 0.5, size=len(a_l))
+            self.a.append(a_l * r)
+        else:
             self.a.append(a_l)
+
             self.z.append(z_l)
 
         # delta_L, of last layer
