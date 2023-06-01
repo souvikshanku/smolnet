@@ -13,7 +13,7 @@ class Network:
         self.num_layer = len(size)
         self.cost_fun = cost_fun
         self.regularization = False
-        self.dropout = False
+        self._dropout = False
 
         self.weights = [np.random.randn(size[i], size[i-1]) for i in range(1, self.num_layer)]
         self.biases = [np.random.randn(size[i], 1) for i in range(1, self.num_layer)]
@@ -34,7 +34,7 @@ class Network:
         Args:
             dropout_prob (float): Dropout probability. Defaults to 0.8.
         """
-        self.dropout = True
+        self._dropout = True
         self.dropout_prob = dropout_prob
     
     def regularize(self, train_size: int, _type: str, _lambda: float = 0.1):
@@ -61,22 +61,17 @@ class Network:
         self.z = []
         self.a = []
 
-        if self.dropout:
-            r = np.random.binomial(1, 0.5, size=len(a_l))
-            self.a.append(a_l * r)
-        else:
-            self.a.append(a_l)  # <- input layer
+        self.a.append(a_l)  # <- input layer
 
         for l in range(self.num_layer - 1):  # last layer is output layer
             z_l = np.dot(self.weights[l], a_l)
             a_l = sigmoid(z_l + self.biases[l])
 
-        if self.dropout:
-            r = np.random.binomial(1, 0.5, size=len(a_l))
-            self.a.append(a_l * r)
-        else:
-            self.a.append(a_l)
+            if self._dropout and l != self.num_layer - 2:  # don't dropout the output layer!
+                r = np.random.binomial(1, 0.5, size=a_l.shape)
+                a_l = a_l * r
 
+            self.a.append(a_l)
             self.z.append(z_l)
 
         # delta_L, of last layer
@@ -144,7 +139,10 @@ class Network:
             np.ndarray: Output of the model.
         """
         for l in range(self.num_layer - 1):
-            z_l = np.dot(self.weights[l], x)
+            if self._dropout:
+                z_l = np.dot(self.weights[l] * self.dropout_prob, x)
+            else:
+                z_l = np.dot(self.weights[l], x)
             x = sigmoid(z_l + self.biases[l])
         return x
 
