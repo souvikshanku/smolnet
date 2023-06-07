@@ -8,12 +8,13 @@ import numpy as np
 
 
 class Network:
-    def __init__(self, size: tuple[int, int, int], cost_fun: str = None):
+    def __init__(self, size: tuple[int, int, int], cost_fun: str=None):
         self.size = size
         self.num_layer = len(size)
         self.cost_fun = cost_fun
         self.regularization = False
         self._dropout = False
+        self._optim_AdamW = False
 
         self.weights = [np.random.randn(size[i], size[i-1]) for i in range(1, self.num_layer)]
         self.biases = [np.random.randn(size[i], 1) for i in range(1, self.num_layer)]
@@ -28,7 +29,7 @@ class Network:
         self.accuracies = []
         self.learning_rate = 1
 
-    def dropout(self, dropout_prob: float = 0.8):
+    def dropout(self, dropout_prob: float=0.8):
         """Apply dropout in the network.
 
         Args:
@@ -37,7 +38,7 @@ class Network:
         self._dropout = True
         self.dropout_prob = dropout_prob
     
-    def regularize(self, train_size: int, _type: str, _lambda: float = 0.1):
+    def regularize(self, train_size: int, _type: str, _lambda: float=0.1):
         """Apply regularization to the network.
 
         Args:
@@ -49,6 +50,26 @@ class Network:
         self.train_size= train_size
         self.reg_type = _type
         self._lambda = _lambda
+
+    def optim_AdamW(
+            self, beta1: float=0.9, beta2: float=0.999, epsilon: float=1e-08, weight_decay: float=0
+        ):
+        """Apply AdamW optimization (not the l1/l2 regularized one) in sgd. Supposed to be used
+        with baked in L2 regularization, not with the stand-alone one.
+
+        Args:
+            beta1 (float, optional): _description_. Defaults to 0.9.
+            beta2 (float, optional): _description_. Defaults to 0.999.
+            epsilon (float, optional): _description_. Defaults to 1e-08.
+            weight_decay (float, optional): _description_. Defaults to 0.
+        """
+        self._optim_AdamW = True
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon = epsilon
+        self.weight_decay = weight_decay
+        self.mov_avg_m = [np.zeros(weight.shape) for weight in self.weights]  # = m_t
+        self.mov_avg_v = [np.zeros(weight.shape) for weight in self.weights]  # = v_t
 
     def feed_forward(self, a_l: np.ndarray, y: np.ndarray):
         """Feedforward each input and calculate deltas at each layer which are to be used later in
@@ -92,37 +113,68 @@ class Network:
             self.gradient_b[-l] =  self.delta[-l].sum(axis=1).reshape(self.biases[-l].shape)
             self.gradient_w[-l] = self.delta[-l] @ self.a[-l-1].T
 
+            if self._optim_AdamW:
+                self.mov_avg_m[-l] += (
+                    self.beta1 * self.mov_avg_m[-l]
+                    + (1 - self.beta1) * self.gradient_w[-l]
+                )
+
+                self.mov_avg_v[-l] += (
+                    self.beta2 * self.mov_avg_v[-l]
+                    + (1 - self.beta2) * self.gradient_w[-l] ** 2
+                )
+
+    def update_params_w_AdamW(self, mini_batch_length: int):
+        """Update weights and biases when AdamW optimization is used.
+
+        Args:
+            mini_batch_length (int): Number of training samples in the mini-batch.
+        """
+        lr = self.learning_rate
+        for layer in range(self.num_layer - 1):
+            self.biases[layer] -= (lr / mini_batch_length) * self.gradient_b[layer]
+
+            m_hat = self.mov_avg_m[layer] / (1 - self.beta1 ** mini_batch_length)
+            v_hat = self.mov_avg_v[layer] / (1 - self.beta2 ** mini_batch_length)
+            mov_avg = m_hat / (np.sqrt(v_hat) + self.epsilon)
+
+            self.weights[layer] -= (lr / mini_batch_length) * (mov_avg + self.weight_decay * self.gradient_w[layer])
+
     def update_params(self, mini_batch_length: int):
         """Update weights and biases after each pass of a mini-batch.
 
         Args:
             mini_batch_length (int): Number of training samples in the mini-batch.
         """
-        eta = self.learning_rate
+        lr = self.learning_rate
         for layer in range(self.num_layer - 1):
-            self.biases[layer] -= (eta / mini_batch_length) * self.gradient_b[layer]
+            self.biases[layer] -= (lr / mini_batch_length) * self.gradient_b[layer]
 
             if self.regularization:
                 if self.reg_type == 'l1':
                     self.weights[layer] = (
                         self.weights[layer]
-                        - (eta * self._lambda / self.train_size) * (self.weights[layer] >= 0)
-                        - (eta / mini_batch_length) * self.gradient_w[layer]
+                        - (lr * self._lambda / self.train_size) * (self.weights[layer] >= 0)
+                        - (lr / mini_batch_length) * self.gradient_w[layer]
                     )
                 else:
                     self.weights[layer] = (
                         self.weights[layer]
-                        - (eta * self._lambda / self.train_size) * self.weights[layer]
-                        - (eta / mini_batch_length) * self.gradient_w[layer]
+                        - (lr * self._lambda / self.train_size) * self.weights[layer]
+                        - (lr / mini_batch_length) * self.gradient_w[layer]
                     )
             else:
-                self.weights[layer] -= (eta / mini_batch_length) * self.gradient_w[layer]
+                self.weights[layer] -= (lr / mini_batch_length) * self.gradient_w[layer]
 
     def zero_grad(self):
         """Set gradients to zero after each mini-batch pass.
         """
         self.gradient_w = [np.zeros(weight.shape) for weight in self.weights]
         self.gradient_b = [np.zeros(bias.shape) for bias in self.biases]
+
+        if self.optim_AdamW:
+            self.mov_avg_m = [np.zeros(weight.shape) for weight in self.weights]
+            self.mov_avg_v = [np.zeros(weight.shape) for weight in self.weights]
 
     def _cost_derivative(self, output: np.ndarray, y: np.ndarray):
         """Default cost function used here is mean squared error. Derivative is w.r.t. `a`.
@@ -163,7 +215,7 @@ class Network:
         )
         return num_correct_labels / len(test_data)
 
-    def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data = None):
+    def train(self, training_data: list[tuple], epochs: int, batch_size: int, test_data=None):
         """Train the network and calculate accuracy after each epoch.
 
         Args:
@@ -186,7 +238,10 @@ class Network:
 
                 self.feed_forward(x, y)
                 self.backprop()
-                self.update_params(len(batch))
+                if self.optim_AdamW:
+                    self.update_params_w_AdamW(len(batch))
+                else:
+                    self.update_params(len(batch))
                 self.zero_grad()
 
             if test_data:
