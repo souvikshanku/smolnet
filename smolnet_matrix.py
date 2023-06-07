@@ -238,7 +238,7 @@ class Network:
 
                 self.feed_forward(x, y)
                 self.backprop()
-                if self.optim_AdamW:
+                if self._optim_AdamW:
                     self.update_params_w_AdamW(len(batch))
                 else:
                     self.update_params(len(batch))
