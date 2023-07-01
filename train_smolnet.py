@@ -5,10 +5,10 @@ import pickle
 
 import numpy as np
 
-from smolnet_matrix import Network
+from smolnet.smolnet_matrix import Network
 
 
-with gzip.open('data/mnist.pkl.gz', "rb") as f:
+with gzip.open('smolnet/data/mnist.pkl.gz', "rb") as f:
     training_data, validation_data, test_data = pickle.load(f, encoding='bytes')
 
 def vectorize(j):
