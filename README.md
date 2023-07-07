@@ -6,6 +6,7 @@ To run the app, do -
 
 ```console
 $ git clone https://github.com/souvikshanku/smolnet.git
+$ cd smolnet
 $ python -m venv .smol_env
 $ source .smol_env/bin/activate
 $ pip install -r requirements.txt
